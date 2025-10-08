@@ -1,0 +1,452 @@
+﻿<!DOCTYPE html>
+<html lang="kk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивті ойын: Хронология сызығы</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0a051d;
+            --primary-glow: #8A2BE2; /* Violet */
+            --secondary-glow: #00FFFF; /* Cyan */
+            --error-glow: #FF4500; /* OrangeRed for error */
+            --success-glow: #00FF00; /* Green */
+            --white-glow: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(ellipse at center, rgba(76, 0, 130, 0.4) 0%, var(--bg-color) 70%);
+            color: var(--white-glow);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Animated background lines */
+        .light-lines::before,
+        .light-lines::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+            animation: move-line 15s linear infinite;
+        }
+
+        .light-lines::after {
+            top: 20%;
+            animation-delay: -7.5s;
+            animation-duration: 20s;
+        }
+        
+        .light-lines::before {
+            bottom: 20%;
+        }
+
+        @keyframes move-line {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+
+        .main-container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 2rem;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            text-shadow: 0 0 5px var(--white-glow), 0 0 10px var(--white-glow), 0 0 20px var(--primary-glow), 0 0 30px var(--primary-glow);
+            margin-bottom: 3rem;
+        }
+
+        /* Timeline styles */
+        #timeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            padding: 20px 0;
+            margin: 2rem 0;
+        }
+
+        #timeline::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background-color: var(--secondary-glow);
+            box-shadow: 0 0 10px var(--secondary-glow), 0 0 20px var(--secondary-glow);
+            transform: translateY(-50%);
+            z-index: -1;
+        }
+
+        .timeline-slot {
+            width: 15%;
+            height: 120px;
+            border: 2px dashed rgba(0, 255, 255, 0.5);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 255, 255, 0.05);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+            background-clip: padding-box;
+        }
+        
+        .timeline-slot::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background-color: var(--secondary-glow);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--secondary-glow);
+        }
+
+        .timeline-slot.drag-over {
+            border-color: var(--success-glow);
+            box-shadow: 0 0 15px var(--success-glow);
+            transform: scale(1.05);
+        }
+
+        /* Draggable blocks */
+        #blocks-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 3rem;
+            min-height: 280px;
+        }
+
+        .draggable-block {
+            padding: 1rem;
+            width: 30%;
+            min-height: 100px;
+            border-radius: 12px;
+            cursor: grab;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.9rem;
+            border: 2px solid;
+        }
+
+        .draggable-block:hover {
+            transform: translateY(-5px) scale(1.03);
+        }
+
+        .draggable-block.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+            box-shadow: none;
+        }
+        
+        /* Shake animation for incorrect drop */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            50% { transform: translateX(8px); }
+            75% { transform: translateX(-8px); }
+        }
+        .shake {
+            animation: shake 0.4s ease-in-out;
+            border-color: var(--error-glow) !important;
+            box-shadow: 0 0 15px var(--error-glow) !important;
+        }
+
+        /* Neon block colors */
+        .block-color-1 { border-color: #FF69B4; box-shadow: 0 0 15px #FF69B4; background-color: rgba(255, 105, 180, 0.1); }
+        .block-color-2 { border-color: #00BFFF; box-shadow: 0 0 15px #00BFFF; background-color: rgba(0, 191, 255, 0.1); }
+        .block-color-3 { border-color: #ADFF2F; box-shadow: 0 0 15px #ADFF2F; background-color: rgba(173, 255, 47, 0.1); }
+        .block-color-4 { border-color: #FFD700; box-shadow: 0 0 15px #FFD700; background-color: rgba(255, 215, 0, 0.1); }
+        .block-color-5 { border-color: #FF4500; box-shadow: 0 0 15px #FF4500; background-color: rgba(255, 69, 0, 0.1); }
+        .block-color-6 { border-color: #9400D3; box-shadow: 0 0 15px #9400D3; background-color: rgba(148, 0, 211, 0.1); }
+
+        /* Placed block styling */
+        .timeline-slot .draggable-block {
+            width: 100%;
+            height: 100%;
+            cursor: default;
+            animation: place-flash 0.8s ease;
+            border-color: var(--success-glow);
+            box-shadow: 0 0 20px var(--success-glow);
+        }
+
+        @keyframes place-flash {
+            0% { transform: scale(1); box-shadow: 0 0 20px var(--success-glow);}
+            50% { transform: scale(1.05); box-shadow: 0 0 30px var(--white-glow), 0 0 40px var(--success-glow); }
+            100% { transform: scale(1); box-shadow: 0 0 20px var(--success-glow); }
+        }
+        
+        /* Completion Modal */
+        #completion-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0s 0.5s;
+        }
+
+        #completion-modal.show {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.5s ease;
+        }
+
+        .modal-content {
+            background-color: var(--bg-color);
+            padding: 3rem;
+            border-radius: 16px;
+            text-align: center;
+            border: 2px solid var(--primary-glow);
+            box-shadow: 0 0 25px var(--primary-glow);
+            transform: scale(0.7);
+            transition: transform 0.5s ease;
+        }
+        
+        #completion-modal.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h2 {
+            font-size: 1.8rem;
+            color: var(--success-glow);
+            text-shadow: 0 0 10px var(--success-glow);
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-content p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            max-width: 500px;
+        }
+
+        .restart-btn {
+            background-color: var(--primary-glow);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px var(--primary-glow), 0 0 30px var(--primary-glow);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="light-lines"></div>
+    <div class="main-container">
+        <h1>Абайдың Жетінші қара сөзі</h1>
+        
+        <!-- Timeline for dropping blocks -->
+        <div id="timeline"></div>
+
+        <!-- Container for draggable blocks -->
+        <div id="blocks-container"></div>
+    </div>
+
+    <!-- Completion Modal -->
+    <div id="completion-modal">
+        <div class="modal-content">
+            <h2>Құттықтаймыз!</h2>
+            <p>«Абай: жан құмары – адамдықтың негізі. Тәнге билетсек – хайуаннан жаман боламыз.»</p>
+            <button id="restart-button" class="restart-btn">Қайта бастау</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const timeline = document.getElementById('timeline');
+            const blocksContainer = document.getElementById('blocks-container');
+            const completionModal = document.getElementById('completion-modal');
+            const restartButton = document.getElementById('restart-button');
+
+            // Sound effects using Tone.js
+            const successSynth = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 }
+            }).toDestination();
+            
+            const errorSynth = new Tone.Synth({
+                oscillator: { type: 'square' },
+                envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.5 }
+            }).toDestination();
+
+            const winSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+            const winNotes = ["C4", "E4", "G4", "C5"];
+
+            const textBlocksData = [
+                { id: 1, text: 'Жас бала екі түрлі мінезбен туады: тән құмары және жан құмары.' },
+                { id: 2, text: 'Тән құмары – ішсем, жесем, ұйықтасам деген. Жан құмары – білсем, көрсем, үйренсем деген.' },
+                { id: 3, text: 'Бала күнгі «бұл не? ол не?» деген сұрақтар – жан құмарының белгісі.' },
+                { id: 4, text: 'Есейген соң, жанның талабын тыңдамай, тәнге қызмет қылып кетеміз.' },
+                { id: 5, text: 'Көкіректе сәуле жоқ, көңілде сенім жоқ – жай көзбен көріп, сырын ойламаймыз.' },
+                { id: 6, text: 'Бала күнімізде жақсы едік: білмесек те білгіміз келетінбіз. Енді хайуаннан да төмен түстік.' }
+            ];
+            
+            const totalBlocks = textBlocksData.length;
+
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+
+            function setupGame() {
+                timeline.innerHTML = '';
+                blocksContainer.innerHTML = '';
+                completionModal.classList.remove('show');
+
+                for (let i = 1; i <= totalBlocks; i++) {
+                    const slot = document.createElement('div');
+                    slot.classList.add('timeline-slot');
+                    slot.dataset.id = i;
+                    timeline.appendChild(slot);
+                }
+
+                const shuffledBlocks = [...textBlocksData];
+                shuffleArray(shuffledBlocks);
+
+                shuffledBlocks.forEach((blockData, index) => {
+                    const block = document.createElement('div');
+                    block.id = `block-${blockData.id}`;
+                    block.dataset.id = blockData.id;
+                    block.textContent = blockData.text;
+                    block.classList.add('draggable-block', `block-color-${(index % 6) + 1}`);
+                    block.draggable = true;
+                    blocksContainer.appendChild(block);
+                });
+                
+                addEventListeners();
+            }
+
+            function addEventListeners() {
+                const draggables = document.querySelectorAll('.draggable-block');
+                const slots = document.querySelectorAll('.timeline-slot');
+
+                draggables.forEach(draggable => {
+                    draggable.addEventListener('dragstart', handleDragStart);
+                    draggable.addEventListener('dragend', handleDragEnd);
+                });
+
+                slots.forEach(slot => {
+                    slot.addEventListener('dragover', handleDragOver);
+                    slot.addEventListener('dragleave', handleDragLeave);
+                    slot.addEventListener('drop', handleDrop);
+                });
+            }
+            
+            function handleDragStart(e) {
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                e.target.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', e.target.id);
+            }
+
+            function handleDragEnd(e) {
+                e.target.classList.remove('dragging');
+            }
+
+            // REVISED: Simpler and more reliable logic
+            function handleDragOver(e) {
+                e.preventDefault();
+                const targetSlot = e.target.closest('.timeline-slot');
+                if (targetSlot && !targetSlot.hasChildNodes()) {
+                    targetSlot.classList.add('drag-over');
+                }
+            }
+
+            // REVISED: Simpler and more reliable logic
+            function handleDragLeave(e) {
+                const targetSlot = e.target.closest('.timeline-slot');
+                if (targetSlot) {
+                    targetSlot.classList.remove('drag-over');
+                }
+            }
+            
+            function handleDrop(e) {
+                e.preventDefault();
+                const targetSlot = e.target.closest('.timeline-slot');
+                if (!targetSlot || targetSlot.hasChildNodes()) return;
+
+                targetSlot.classList.remove('drag-over');
+                const draggedId = e.dataTransfer.getData('text/plain');
+                const draggedElement = document.getElementById(draggedId);
+                
+                if (!draggedElement) return;
+
+                const slotId = targetSlot.dataset.id;
+                const blockId = draggedElement.dataset.id;
+
+                if (slotId === blockId) {
+                    // Correct drop
+                    targetSlot.appendChild(draggedElement);
+                    draggedElement.draggable = false;
+                    draggedElement.classList.remove('dragging');
+                    successSynth.triggerAttackRelease("C5", "8n", Tone.now());
+                    checkCompletion();
+                } else {
+                    // Incorrect drop
+                    errorSynth.triggerAttackRelease("C3", "8n", Tone.now());
+                    draggedElement.classList.add('shake');
+                    setTimeout(() => draggedElement.classList.remove('shake'), 400);
+                }
+            }
+            
+            function checkCompletion() {
+                const placedBlocks = timeline.querySelectorAll('.draggable-block').length;
+                if (placedBlocks === totalBlocks) {
+                    setTimeout(() => {
+                        completionModal.classList.add('show');
+                        winSynth.triggerAttackRelease(winNotes, "8n", Tone.now());
+                    }, 500);
+                }
+            }
+
+            restartButton.addEventListener('click', setupGame);
+            
+            setupGame();
+        });
+    </script>
+</body>
+</html>
+
